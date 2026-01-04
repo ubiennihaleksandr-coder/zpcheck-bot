@@ -1,9 +1,11 @@
-import time
-time.sleep(5)  # Ждём 5 секунд перед запуском telebot
 import os
+import telebot
+import time
+from flask import Flask, request
 
 TOKEN = os.environ.get('TOKEN', "8566096823:AAEzu-4uwv40pMzJroyCI_WJ1-bgOODePlM")
 bot = telebot.TeleBot(TOKEN)
+app = Flask(__name__)
 
 users = {}
 
@@ -22,7 +24,8 @@ def start(msg):
     users[msg.from_user.id] = {'step': 'region'}
     
     markup = telebot.types.ReplyKeyboardMarkup(True, True)
-    for r in REGIONS: markup.add(r)
+    for r in REGIONS:
+        markup.add(r)
     
     bot.send_message(
         msg.chat.id,
@@ -33,7 +36,6 @@ def start(msg):
 
 @bot.message_handler(commands=['test'])
 def test(msg):
-    # Твои данные за апрель
     salary = 26900
     hours = 300
     days = 30
@@ -41,7 +43,6 @@ def test(msg):
     actual = 215482
     region = REGIONS["Иркутская (Усть-Кут)"]
     
-    # Расчёт
     hour_rate = salary / 176
     salary_hours = hour_rate * hours
     per_diem_total = per_diem * days
@@ -55,30 +56,23 @@ def test(msg):
     ndfl = (salary_hours + per_diem_tax + rk + north) * 0.13
     net_law = gross - ndfl
     
-    # Как у них
     net_actual = actual
     gross_actual = net_actual / 0.87
     salary_with_coeff = gross_actual - per_diem_total
     base_buh = salary_with_coeff / (1 + (region['rk'] - 1) + (region['north'] / 100))
     
     report = f"""
-🧪 <b>ТВОИ ДАННЫЕ ЗА АПРЕЛЬ 2025</b>
+🧪 <b>ТВОИ ДАННЫЕ ЗА АПРЕЛЬ:</b>
 
-<b>По закону должно быть:</b>
-• База для коэффициентов: {rub(base_law)}
+<b>По закону:</b>
+• База: {rub(base_law)}
 • На руки: {rub(net_law)}
 
-<b>Как начислили бухгалтерия:</b>
-• База у них: {rub(base_buh)}
+<b>Их расчёт:</b>
+• База: {rub(base_buh)}
 • Начислили: {rub(actual)}
 
-🚨 <b>ВЫВОД:</b>
-Они завышают базу в <b>{base_buh/base_law:.1f} раза</b>!
-
-💸 <b>Отпускные за 20 дней:</b>
-• По их начислениям: {rub((actual / 29.3) * 20)}
-• По закону: {rub((net_law / 29.3) * 20)}
-• Разница: {rub(((actual - net_law) / 29.3) * 20)}
+🚨 <b>Завышают базу в {base_buh/base_law:.1f} раза!</b>
 """
     
     bot.send_message(msg.chat.id, report, parse_mode='HTML')
@@ -86,51 +80,57 @@ def test(msg):
 @bot.message_handler(func=lambda m: True)
 def handle(msg):
     uid = msg.from_user.id
-    if uid not in users: users[uid] = {'step': 'region'}
+    if uid not in users:
+        users[uid] = {'step': 'region'}
     
     s = users[uid]
     step = s.get('step', 'region')
     
-    # Шаг 1: Регион
     if step == 'region':
-        if msg.text not in REGIONS: return
+        if msg.text not in REGIONS:
+            return
         s['region'] = msg.text
         s['region_data'] = REGIONS[msg.text]
         s['step'] = 'salary'
         bot.send_message(uid, f"📍 {msg.text}\nВведи оклад:", parse_mode='HTML')
     
-    # Шаг 2: Оклад
     elif step == 'salary':
-        try: s['salary'] = float(msg.text.replace(' ', ''))
-        except: return
+        try:
+            s['salary'] = float(msg.text.replace(' ', ''))
+        except:
+            return
         s['step'] = 'hours'
         bot.send_message(uid, f"💰 {rub(s['salary'])}\nЧасов?", parse_mode='HTML')
     
-    # Шаг 3: Часы
     elif step == 'hours':
-        try: s['hours'] = float(msg.text)
-        except: return
+        try:
+            s['hours'] = float(msg.text)
+        except:
+            return
         s['step'] = 'days'
         bot.send_message(uid, f"⏰ {s['hours']} ч.\nДней?", parse_mode='HTML')
     
-    # Шаг 4: Дни
     elif step == 'days':
-        try: s['days'] = float(msg.text)
-        except: return
+        try:
+            s['days'] = float(msg.text)
+        except:
+            return
         s['step'] = 'per_diem'
         bot.send_message(uid, f"📅 {s['days']} дн.\nНадбавка за день?", parse_mode='HTML')
     
-    # Шаг 5: Надбавка
     elif step == 'per_diem':
-        try: s['per_diem'] = float(msg.text.replace(' ', ''))
-        except: return
+        try:
+            s['per_diem'] = float(msg.text.replace(' ', ''))
+        except:
+            return
         s['step'] = 'actual'
         bot.send_message(uid, f"💵 {rub(s['per_diem'])}/день\nСколько начислили?", parse_mode='HTML')
     
-    # Шаг 6: Расчёт
     elif step == 'actual':
-        try: actual = float(msg.text.replace(' ', ''))
-        except: return
+        try:
+            actual = float(msg.text.replace(' ', ''))
+        except:
+            return
         
         salary = s['salary']
         hours = s['hours']
@@ -138,7 +138,6 @@ def handle(msg):
         per_diem = s['per_diem']
         region = s['region_data']
         
-        # По закону
         hour_rate = salary / 176
         salary_hours = hour_rate * hours
         per_diem_total = per_diem * days
@@ -152,7 +151,6 @@ def handle(msg):
         ndfl = (salary_hours + per_diem_tax + rk + north) * 0.13
         net_law = gross - ndfl
         
-        # Как у них
         net_actual = actual
         gross_actual = net_actual / 0.87
         salary_with_coeff = gross_actual - per_diem_total
@@ -176,9 +174,26 @@ def handle(msg):
         bot.send_message(uid, report, parse_mode='HTML')
         users.pop(uid, None)
 
-print("🤖 Бот запущен!")
-print("⏳ Жду 5 секунд перед запуском...")
-time.sleep(5)
+@app.route('/')
+def home():
+    return "Бот работает! Отправь /start в Telegram"
 
-print("🤖 Запускаю бота...")
-bot.polling(none_stop=True)
+@app.route('/' + TOKEN, methods=['POST'])
+def webhook():
+    json_str = request.get_data().decode('UTF-8')
+    update = telebot.types.Update.de_json(json_str)
+    bot.process_new_updates([update])
+    return ''
+
+if __name__ == '__main__':
+    print("🤖 Бот запускается...")
+    print("⏳ Ждём 5 секунд...")
+    time.sleep(5)
+    
+    # Удаляем старый вебхук если есть
+    bot.remove_webhook()
+    time.sleep(2)
+    
+    # Flask должен запуститься на порту 10000 (требование Render)
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port)
