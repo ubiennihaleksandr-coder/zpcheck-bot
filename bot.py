@@ -1,4 +1,5 @@
-import telebot
+import time
+time.sleep(5)  # Ждём 5 секунд перед запуском telebot
 import os
 
 TOKEN = os.environ.get('TOKEN', "8566096823:AAEzu-4uwv40pMzJroyCI_WJ1-bgOODePlM")
@@ -176,4 +177,8 @@ def handle(msg):
         users.pop(uid, None)
 
 print("🤖 Бот запущен!")
+print("⏳ Жду 5 секунд перед запуском...")
+time.sleep(5)
+
+print("🤖 Запускаю бота...")
 bot.polling(none_stop=True)
